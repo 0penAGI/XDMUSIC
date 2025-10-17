@@ -1,4 +1,4 @@
-XDMUSIC: Quantum-Inspired Avant-Garde Music Generation
+## XDMUSIC: Quantum-Inspired Avant-Garde Music Generation
 
 XDMUSIC (powered by XDUST) is a Python library for generating experimental, quantum-inspired music tracks. It combines quantum computing concepts (qubits, superposition, entanglement) with advanced audio processing techniques like fractal granulation, MIDI generation, and real-time visualization to create unique, avant-garde compositions.
 Features
@@ -172,3 +172,8 @@ Contributing
 Contributions are welcome! Please open an issue or submit a pull request on GitHub.
 Contact
 For questions or feedback, reach out at thedubsty@gmail.com.
+Tags
+
+#quantum-music
+#generative-audio
+Join the discussion on Telegram: t.me/ZeropenAGI
