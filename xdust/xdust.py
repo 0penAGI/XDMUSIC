@@ -1,4 +1,5 @@
 
+
 import numpy as np
 from scipy.io.wavfile import write, read
 from scipy.signal import convolve
@@ -15,6 +16,19 @@ from mido import MidiFile, MidiTrack, Message
 from matplotlib.animation import FuncAnimation
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+
+# Helper: Safe time stretch wrapper
+def safe_time_stretch(audio, rate):
+    """Time stretch without phase vocoder to avoid _phasor_angles errors"""
+    try:
+        if len(audio) < 1024 or np.max(np.abs(audio)) < 1e-8 or np.std(audio) < 1e-6:
+            return audio
+        indices = np.arange(0, len(audio), 1/rate)
+        indices = indices[indices < len(audio)]
+        return np.interp(indices, np.arange(len(audio)), audio)
+    except Exception as e:
+        print(f"⚠️ Time stretch failed: {e}, using original")
+        return audio
 
 # XDUST Library - Quantum Computing with Binary Qubits
 class BinaryQubit:
@@ -132,35 +146,101 @@ def generate_waveform(t, freq, waveform_type="sin"):
 
 def fractal_granules(audio_segment, sample_rate, grain_size_ms=50, iterations=3, ratio=0.618, flux=0.5):
     grain_samples = int(sample_rate * grain_size_ms / 1000)
+    
+    # Safety check for audio segment
+    if len(audio_segment) == 0:
+        return audio_segment
+        
     output = np.zeros(len(audio_segment))
     
     def recursive_granule(audio, depth, grain_size):
-        if depth <= 0:
+        if depth <= 0 or len(audio) == 0:
             return audio
+            
+        # Ensure grain_size is reasonable
+        grain_size = max(256, min(grain_size, len(audio) // 2))
+        if grain_size <= 0:
+            return audio
+            
         sub_output = np.zeros(len(audio))
-        n_grains = 10
+        n_grains = max(1, min(5, len(audio) // grain_size))
+        
         for _ in range(n_grains):
             start = random.randint(0, max(0, len(audio) - grain_size))
             if flux > 0:
                 start += int(random.uniform(-flux, flux) * grain_size)
                 start = np.clip(start, 0, max(0, len(audio) - grain_size))
+                
             grain = audio[start:start + grain_size]
             if len(grain) < grain_size:
                 grain = np.pad(grain, (0, grain_size - len(grain)), mode='constant')
-            n_fft = min(2048, len(grain) // 2)
-            pitch_shift = random.uniform(0.6, 1.4) if flux > 0 else 1.0
-            stretch_factor = random.uniform(0.8, 1.2) if flux > 0 else 1.0
-            grain = librosa.effects.pitch_shift(grain, sr=sample_rate, n_steps=np.log2(pitch_shift) * 12, n_fft=n_fft)
-            grain = librosa.effects.time_stretch(grain, rate=stretch_factor)
-            grain = recursive_granule(grain, depth - 1, int(grain_size * ratio))
-            if len(grain) > len(audio):
-                grain = grain[:len(audio)]
-            elif len(grain) < len(audio):
-                grain = np.pad(grain, (0, len(audio) - len(grain)), mode='constant')
-            sub_output += grain * random.uniform(0.1, 0.4)
-        return sub_output / np.max(np.abs(sub_output + 1e-10)) * 0.6
+                
+            # Skip processing if grain is too small or silent
+            if len(grain) < 512 or np.max(np.abs(grain)) < 1e-8:
+                continue
+                
+            # Clean the grain data
+            grain = np.nan_to_num(grain, nan=0.0, posinf=0.0, neginf=0.0)
+            grain = grain.astype(np.float64)  # Use float64 to avoid dtype issues
+            
+            try:
+                # Apply pitch and time effects with safety checks
+                pitch_shift = random.uniform(0.6, 1.4) if flux > 0 else 1.0
+                stretch_factor = random.uniform(0.8, 1.2) if flux > 0 else 1.0
+                
+                n_fft = min(2048, len(grain) // 4, 512)  # More conservative n_fft
+                
+                # Only apply pitch shift if we have enough samples
+                if len(grain) > n_fft * 2:
+                    grain = librosa.effects.pitch_shift(
+                        grain, 
+                        sr=sample_rate, 
+                        n_steps=np.log2(pitch_shift) * 12, 
+                        n_fft=n_fft,
+                        bins_per_octave=12
+                    )
+                
+                # Apply time stretch
+                grain = librosa.effects.time_stretch(grain, rate=stretch_factor)
+                
+            except Exception as e:
+                # Fallback: simple resampling for pitch effect
+                try:
+                    if pitch_shift != 1.0:
+                        new_length = int(len(grain) / pitch_shift)
+                        grain = librosa.resample(grain, orig_sr=sample_rate, target_sr=int(sample_rate * pitch_shift))
+                        grain = grain[:new_length] if len(grain) > new_length else np.pad(grain, (0, new_length - len(grain)))
+                except Exception:
+                    pass  # Keep original grain if all processing fails
+            
+            # Recursive processing with depth limit
+            if depth > 1 and len(grain) > 512:
+                new_grain_size = int(grain_size * ratio)
+                if new_grain_size >= 256:  # Ensure reasonable grain size
+                    grain = recursive_granule(grain, depth - 1, new_grain_size)
+            
+            # Mix grain into output
+            grain_len = min(len(grain), len(audio))
+            if grain_len > 0:
+                sub_output[:grain_len] += grain[:grain_len] * random.uniform(0.1, 0.3)
+        
+        # Normalize and return
+        if np.max(np.abs(sub_output)) > 1e-8:
+            sub_output = sub_output / np.max(np.abs(sub_output)) * 0.6
+        return sub_output
 
-    output = recursive_granule(audio_segment, iterations, grain_samples)
+    # Main processing with iteration limit
+    try:
+        output = recursive_granule(audio_segment, min(iterations, 5), grain_samples)
+    except RecursionError:
+        print("⚠️ Recursion limit reached in fractal_granules, using original audio")
+        output = audio_segment
+    
+    # Final safety check
+    output = np.nan_to_num(output, nan=0.0, posinf=0.0, neginf=0.0)
+    if np.max(np.abs(output)) > 1e-8:
+        output = output / np.max(np.abs(output)) * 0.8
+        
     return output
 
 def quantum_mixer(track_a, track_b, entanglement_strength=0.5, sample_rate=44100):
@@ -415,9 +495,12 @@ def quantum_punk_avantgarde(
         combined += glitch
 
         distorted = np.clip(np.tanh(3.5 * combined) * 0.8, -1, 1)
-        distorted = distorted.astype(np.float32)
+        distorted = np.nan_to_num(distorted, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
         n_fft = min(2048, len(distorted) // 2)
-        stretched = librosa.effects.time_stretch(distorted, rate=1 / tempo_factor)
+        if np.any(np.isnan(distorted)) or len(distorted) < 512 or np.max(np.abs(distorted)) < 1e-6:
+            stretched = distorted
+        else:
+            stretched = safe_time_stretch(distorted, float(1 / tempo_factor))
         if len(stretched) > samples_per_beat:
             stretched = stretched[:samples_per_beat]
         elif len(stretched) < samples_per_beat:
@@ -425,8 +508,11 @@ def quantum_punk_avantgarde(
 
         for stem_name, wave in [('bass', bass_wave), ('lead', lead_wave), ('synth', synth_wave), ('anarchy', anarchy_wave)]:
             distorted_stem = np.clip(np.tanh(3.5 * wave) * 0.8, -1, 1)
-            distorted_stem = distorted_stem.astype(np.float32)
-            stretched_stem = librosa.effects.time_stretch(distorted_stem, rate=1 / tempo_factor)
+            distorted_stem = np.nan_to_num(distorted_stem, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+            if np.any(np.isnan(distorted_stem)) or len(distorted_stem) < 512 or np.max(np.abs(distorted_stem)) < 1e-6:
+                stretched_stem = distorted_stem
+            else:
+                stretched_stem = safe_time_stretch(distorted_stem, float(1 / tempo_factor))
             if len(stretched_stem) > samples_per_beat:
                 stretched_stem = stretched_stem[:samples_per_beat]
             elif len(stretched_stem) < samples_per_beat:
@@ -787,7 +873,7 @@ class TrackExpansionEngine:
             write(f"stem_{stem_name}_expanded.wav", sample_rate, stem_16bit)
             print(f"🎵 Stem '{stem_name}' сохранён")
         
-        self.save_midi(midi_notes, "expanded_track.mid", tempo=int(dna['tempo_base']))
+        save_midi(midi_notes, "expanded_track.mid", tempo=int(dna['tempo_base']))
         
         return full_track, structure, dna, stems_sections
 
