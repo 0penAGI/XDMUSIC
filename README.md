@@ -1,6 +1,6 @@
 ## XDMUSIC: Quantum-Inspired Avant-Garde Music Generation
 
-XDMUSIC (powered by XDUST) is a Python library for generating experimental, quantum-inspired music tracks. It combines quantum computing concepts (qubits, superposition, entanglement) with advanced audio processing techniques like fractal granulation, MIDI generation, and real-time visualization to create unique, avant-garde compositions.
+# XDMUSIC (powered by XDUST) is a Python library for generating experimental, quantum-inspired music tracks. It combines quantum computing concepts (qubits, superposition, entanglement) with advanced audio processing techniques like fractal granulation, MIDI generation, and real-time visualization to create unique, avant-garde compositions.
 Features
 
 Generate music tracks with quantum-inspired algorithms.
@@ -62,7 +62,7 @@ View metadata in quick_start_full_track_metadata.json.
 Run the example in examples/example_generate_track.py for a full demo.
 Usage
 Generating a Quantum-Inspired Track
-Use the quantum_punk_avantgarde function to create a track with specific parameters.
+Use the quantum_punk_avantgarde function to create a track with specific parameters:
 from xdust import quantum_punk_avantgarde
 
 # Generate a 20-second track with glitch mood
@@ -75,7 +75,7 @@ audio, main_q, bass_q, synth_q, anarchists, chaos, ai_chaos, tempo, stems = quan
 )
 
 Expanding a Seed Track
-Extend a short seed audio into a full-length composition with create_full_track_from_seed.
+Extend a short seed audio into a full-length composition with create_full_track_from_seed:
 from xdust import create_full_track_from_seed
 
 # Expand a seed track to 180 seconds
@@ -161,19 +161,4 @@ Requirements
 Python 3.8+
 numpy>=1.21.0
 scipy>=1.7.0
-librosa>=0.9.0
-mido>=1.2.0
-matplotlib>=3.4.0
-scikit-learn>=1.0.0
-
-License
-This project is licensed under the MIT License. See the LICENSE file for details.
-Contributing
-Contributions are welcome! Please open an issue or submit a pull request on GitHub.
-Contact
-For questions or feedback, reach out at thedubsty@gmail.com.
-Tags
-
-#quantum-music
-#generative-audio
-Join the discussion on Telegram: t.me/ZeropenAGI
+`librosa>=0.9.
