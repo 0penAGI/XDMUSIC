@@ -14,7 +14,7 @@ Export audio, stems, MIDI, and metadata.
 Installation
 
 Clone the repository:
-git clone https://github.com/yourusername/xdust.git
+git clone https://github.com/0penAGI/XDMUSIC.git
 cd xdust
 
 
