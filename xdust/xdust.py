@@ -1,3 +1,4 @@
+
 import numpy as np
 from scipy.io.wavfile import write, read
 from scipy.signal import convolve
@@ -414,6 +415,7 @@ def quantum_punk_avantgarde(
         combined += glitch
 
         distorted = np.clip(np.tanh(3.5 * combined) * 0.8, -1, 1)
+        distorted = distorted.astype(np.float32)
         n_fft = min(2048, len(distorted) // 2)
         stretched = librosa.effects.time_stretch(distorted, rate=1 / tempo_factor)
         if len(stretched) > samples_per_beat:
@@ -423,6 +425,7 @@ def quantum_punk_avantgarde(
 
         for stem_name, wave in [('bass', bass_wave), ('lead', lead_wave), ('synth', synth_wave), ('anarchy', anarchy_wave)]:
             distorted_stem = np.clip(np.tanh(3.5 * wave) * 0.8, -1, 1)
+            distorted_stem = distorted_stem.astype(np.float32)
             stretched_stem = librosa.effects.time_stretch(distorted_stem, rate=1 / tempo_factor)
             if len(stretched_stem) > samples_per_beat:
                 stretched_stem = stretched_stem[:samples_per_beat]
