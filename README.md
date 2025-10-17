@@ -15,6 +15,7 @@ Installation
 
 Clone the repository:
 git clone https://github.com/0penAGI/XDMUSIC.git
+
 cd xdust
 
 
